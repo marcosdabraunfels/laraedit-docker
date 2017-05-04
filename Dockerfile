@@ -31,11 +31,11 @@ RUN echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale  && \
     ln -sf /usr/share/zoneinfo/UTC /etc/localtime
     
 # setup bash
-COPY .bash_aliases /root
+ADD https://raw.githubusercontent.com/marcosdabraunfels/laraedit-docker-eclipse-che/master/.bash_aliases /root
 
 # install nginx
 RUN apt-get install -y --force-yes nginx
-COPY homestead /etc/nginx/sites-available/
+ADD https://raw.githubusercontent.com/marcosdabraunfels/laraedit-docker-eclipse-che/master/homestead /etc/nginx/sites-available/
 RUN rm -rf /etc/nginx/sites-available/default && \
     rm -rf /etc/nginx/sites-enabled/default && \
     ln -fs "/etc/nginx/sites-available/homestead" "/etc/nginx/sites-enabled/homestead" && \
@@ -71,7 +71,7 @@ RUN sed -i "s/error_reporting = .*/error_reporting = E_ALL/" /etc/php/7.0/cli/ph
     sed -i -e "s/pm.max_requests = 500/pm.max_requests = 200/g" /etc/php/7.0/fpm/pool.d/www.conf && \
     sed -i -e "s/;listen.mode = 0660/listen.mode = 0750/g" /etc/php/7.0/fpm/pool.d/www.conf && \
     find /etc/php/7.0/cli/conf.d/ -name "*.ini" -exec sed -i -re 's/^(\s*)#(.*)/\1;\2/g' {} \;
-COPY fastcgi_params /etc/nginx/
+ADD https://raw.githubusercontent.com/marcosdabraunfels/laraedit-docker-eclipse-che/master/fastcgi_params /etc/nginx/
 RUN phpenmod mcrypt && \
     mkdir -p /run/php/ && chown -Rf www-data.www-data /run/php
 
@@ -127,7 +127,7 @@ RUN apt-get install -y --force-yes beanstalkd && \
 # install supervisor
 RUN apt-get install -y supervisor && \
     mkdir -p /var/log/supervisor
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+ADD https://raw.githubusercontent.com/marcosdabraunfels/laraedit-docker-eclipse-che/master/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 VOLUME ["/var/log/supervisor"]
 
 # install yarn
