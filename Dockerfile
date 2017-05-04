@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Derek Bourgeois <derek@ibourgeois.com>
 
 # set some environment variables
@@ -18,16 +18,11 @@ RUN apt-get install -y software-properties-common curl build-essential \
     debconf-utils
 
 # add some repositories
-RUN apt-add-repository ppa:nginx/stable -y && \
-    apt-add-repository ppa:rwky/redis -y && \
-    apt-add-repository ppa:ondrej/php -y && \
-    apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys 5072E1F5 && \
-    sh -c 'echo "deb http://repo.mysql.com/apt/ubuntu/ trusty mysql-5.7" >> /etc/apt/sources.list.d/mysql.list' && \
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-    sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" >> /etc/apt/sources.list.d/postgresql.list' && \
-    curl -s https://packagecloud.io/gpg.key | apt-key add - && \
+RUN curl -s https://packagecloud.io/gpg.key | apt-key add - && \
     echo "deb http://packages.blackfire.io/debian any main" | tee /etc/apt/sources.list.d/blackfire.list && \
-    curl --silent --location https://deb.nodesource.com/setup_5.x | bash - && \
+    curl --silent --location https://deb.nodesource.com/setup_6.x | bash - && \
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
     apt-get update
 
 # set the locale
@@ -55,9 +50,9 @@ VOLUME ["/var/cache/nginx"]
 VOLUME ["/var/log/nginx"]
 
 # install php
-RUN apt-get install -y --force-yes php7.0-fpm php7.0-cli php7.0-dev php7.0-pgsql php7.0-sqlite3 php7.0-gd \
-    php-apcu php7.0-curl php7.0-mcrypt php7.0-imap php7.0-mysql php7.0-readline php-xdebug php-common \
-    php7.0-mbstring php7.0-xml php7.0-zip
+RUN apt-get install -y --force-yes php-fpm php-cli php-dev php-pgsql php-sqlite3 php-gd \
+    php-apcu php-curl php-mcrypt php-imap php-mysql php-readline php-xdebug php-common \
+    php-mbstring php-xml php-zip
 RUN sed -i "s/error_reporting = .*/error_reporting = E_ALL/" /etc/php/7.0/cli/php.ini && \
     sed -i "s/display_errors = .*/display_errors = On/" /etc/php/7.0/cli/php.ini && \
     sed -i "s/;date.timezone.*/date.timezone = UTC/" /etc/php/7.0/cli/php.ini && \
@@ -81,15 +76,18 @@ RUN phpenmod mcrypt && \
     mkdir -p /run/php/ && chown -Rf www-data.www-data /run/php
 
 # install sqlite 
-RUN apt-get install -y sqlite3 libsqlite3-dev
+RUN apt-get install -y --force-yes sqlite3 libsqlite3-dev
+RUN apt-get install -y --force-yes redis-server
+RUN apt-get install -y --force-yes postgresql postgresql-contrib
 
 # install mysql 
 RUN echo mysql-server mysql-server/root_password password $DB_PASS | debconf-set-selections;\
     echo mysql-server mysql-server/root_password_again password $DB_PASS | debconf-set-selections;\
     apt-get install -y mysql-server && \
+    echo "[mysqld]" >> /etc/mysql/my.cnf && \
     echo "default_password_lifetime = 0" >> /etc/mysql/my.cnf && \
     sed -i '/^bind-address/s/bind-address.*=.*/bind-address = 0.0.0.0/' /etc/mysql/my.cnf
-RUN /usr/sbin/mysqld & \
+RUN service mysql start & \
     sleep 10s && \
     echo "GRANT ALL ON *.* TO root@'0.0.0.0' IDENTIFIED BY 'secret' WITH GRANT OPTION; CREATE USER 'homestead'@'0.0.0.0' IDENTIFIED BY 'secret'; GRANT ALL ON *.* TO 'homestead'@'0.0.0.0' IDENTIFIED BY 'secret' WITH GRANT OPTION; GRANT ALL ON *.* TO 'homestead'@'%' IDENTIFIED BY 'secret' WITH GRANT OPTION; FLUSH PRIVILEGES; CREATE DATABASE homestead;" | mysql
 VOLUME ["/var/lib/mysql"]
@@ -117,9 +115,6 @@ RUN /usr/bin/npm install -g gulp
 # install bower
 RUN /usr/bin/npm install -g bower
 
-# install redis 
-RUN apt-get install -y redis-server
-
 # install blackfire
 RUN apt-get install -y blackfire-agent blackfire-php
 
@@ -134,6 +129,9 @@ RUN apt-get install -y supervisor && \
     mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 VOLUME ["/var/log/supervisor"]
+
+# install yarn
+RUN apt-get install -y yarn
 
 # clean up our mess
 RUN apt-get remove --purge -y software-properties-common && \
